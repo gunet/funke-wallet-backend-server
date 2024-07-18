@@ -19,6 +19,7 @@ import { TYPES } from './services/types';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
+import { proxyRouter } from './routers/proxy.router';
 
 
 const app: Express = express();
@@ -37,6 +38,7 @@ app.use(cors({ credentials: true, origin: true }));
 // define routes and middleware here
 app.use('/status', statusRouter);
 app.use('/user', userController);
+
 // app.get('/jwks', async (req, res) => {
 // 	const users = await getAllUsers();
 // 	if (users.err) {
@@ -62,6 +64,7 @@ app.use('/communication', communicationHandlerRouter);
 app.use('/storage', storageRouter);
 app.use('/legal_person', legalPersonRouter);
 app.use('/verifiers', verifiersRouter);
+app.use('/proxy', proxyRouter);
 
 
 
