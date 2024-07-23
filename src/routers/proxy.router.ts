@@ -13,7 +13,7 @@ proxyRouter.post('/', async (req, res) => {
             data: data,
             maxRedirects: 0
         });
-        
+
         return res.status(200).send({
             status: response.status,
             headers: response.headers,
