@@ -19,7 +19,8 @@ import { TYPES } from './services/types';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
-
+import { proxyRouter } from './routers/proxy.router';
+import { utilsRouter } from './routers/utilsRouter';
 
 const app: Express = express();
 // __dirname is "/path/to/dist/src"
@@ -37,6 +38,12 @@ app.use(cors({ credentials: true, origin: true }));
 // define routes and middleware here
 app.use('/status', statusRouter);
 app.use('/user', userController);
+app.get('/callback', async (req, res) => {
+	const dpopNonce = req.headers['dpop-nonce'];
+	// Pass the nonce as a query parameter to the react application
+	res.redirect(`${config.walletClientUrl}?code=${req.query.code}&dpop-nonce=${dpopNonce}`);
+});
+
 // app.get('/jwks', async (req, res) => {
 // 	const users = await getAllUsers();
 // 	if (users.err) {
@@ -62,10 +69,8 @@ app.use('/communication', communicationHandlerRouter);
 app.use('/storage', storageRouter);
 app.use('/legal_person', legalPersonRouter);
 app.use('/verifiers', verifiersRouter);
-
-
-
-
+app.use('/proxy', proxyRouter);
+app.use('/utils', utilsRouter);
 
 const server = http.createServer(app);
 appContainer.get<SocketManagerServiceInterface>(TYPES.SocketManagerService).register(server);

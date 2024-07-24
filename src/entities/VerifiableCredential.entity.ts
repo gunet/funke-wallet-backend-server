@@ -39,11 +39,16 @@ export class VerifiableCredentialEntity {
 	@Column({ nullable: false })
 	format: string; // = CredentialTypes.JWT_VC; // 'ldp_vc' or 'jwt_vc' or "vc+sd-jwt"
 
+	@Column({ nullable: true })
+	doctype?: string;
 
-	@Column({ nullable: false })
+	@Column({ nullable: true })
+	vct?: string;
+
+	@Column({ nullable: true })
 	logoURL: string = "";
 
-	@Column({ nullable: false })
+	@Column({ nullable: true })
 	backgroundColor: string = "";
 
 
@@ -78,6 +83,8 @@ type VerifiableCredential = {
 	backgroundColor: string;
 	issuanceDate: Date;
 	issuerFriendlyName: string;
+	doctype?: string;
+	vct?: string;
 }
 
 
