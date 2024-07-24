@@ -7,7 +7,7 @@ const utilsRouter: Router = express.Router();
 
 
 utilsRouter.post('/mdl/parse', async (req, res) => {
-	const { credential, doc_type } = req.body;
+	const { credential, doctype } = req.body;
 	const step1 =  base64url.decode(credential);
 	const issuerSigned = await cbor.decode(step1)
 
@@ -19,9 +19,9 @@ utilsRouter.post('/mdl/parse', async (req, res) => {
 		})
 	}
 
-
-	const issuerSignedDoc = new IssuerSignedDocument(doc_type, issuerSigned);
-	const namespace = issuerSignedDoc.getIssuerNameSpace(doc_type);
+	
+	const issuerSignedDoc = new IssuerSignedDocument(doctype, issuerSigned);
+	const namespace = issuerSignedDoc.getIssuerNameSpace(doctype);
 	return res.send({ namespace });
 })
 
