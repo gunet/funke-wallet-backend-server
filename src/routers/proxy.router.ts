@@ -11,7 +11,7 @@ proxyRouter.post('/', async (req, res) => {
             headers: headers,
             method: method,
             data: data,
-            maxRedirects: 0
+            maxRedirects: 0,
         });
 
         return res.status(200).send({
@@ -28,7 +28,7 @@ proxyRouter.post('/', async (req, res) => {
             return res.status(200).send({ status: err.response.status, headers: err.response.headers, data: { }})
         }
         console.error(err);
-        return res.status(err.response.status).send({ err: { data: err.response.data } });
+        return res.status(err.response.status).send({ err: { data: err.response.data, headers: err.response?.headers } });
     }
 
 })

@@ -40,6 +40,8 @@ app.use('/status', statusRouter);
 app.use('/user', userController);
 app.get('/callback', async (req, res) => {
 	const dpopNonce = req.headers['dpop-nonce'];
+	console.log("Headers = ", req.headers)
+	console.log("Callback = ", { dpopNonce, code: req.query.code })
 	// Pass the nonce as a query parameter to the react application
 	res.redirect(`${config.walletClientUrl}?code=${req.query.code}&dpop-nonce=${dpopNonce}`);
 });
