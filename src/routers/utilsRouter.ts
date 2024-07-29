@@ -75,14 +75,9 @@ function convertToJSONWithMaps(obj) {
 utilsRouter.post('/mdl/parse', async (req, res) => {
 	const { credential, doctype } = req.body;
 	const parsed = await parseMsoMdocCredential(credential, doctype);
-	
-	console.log("Parsed = ",  parsed.documents[0].getIssuerNameSpace(doctype))
-
 	const result = await verifyMdocWithAllCerts(parsed);
-
-	console.log("Verification result = ", result)
 	const ns = parsed.documents[0].getIssuerNameSpace(doctype);
-	res.send({ namespace: convertToJSONWithMaps(ns) })
+	res.send({ namespace: convertToJSONWithMaps(ns), verificationStatus: result })
 })
 
 export {
