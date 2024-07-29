@@ -27,10 +27,9 @@ proxyRouter.post('/', async (req, res) => {
         if (err.response && err.response.status == 302) {
             return res.status(200).send({ status: err.response.status, headers: err.response.headers, data: { }})
         }
-        console.error(err);
-        return res.status(err.response.status).send({ err: { data: err.response.data, headers: err.response?.headers } });
+				console.error("Proxy error: ", err); //ECONNRESET
+        return res.status(104).send({ err: { data: err.response?.data, headers: err.response?.headers } });
     }
-
 })
 
 export {
