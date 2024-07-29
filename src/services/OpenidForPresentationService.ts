@@ -432,7 +432,6 @@ export class OpenidForPresentationService implements OutboundCommunication {
 					.map((field) => field.path)
 					.reduce((accumulator, currentValue) => [...accumulator, ...currentValue]);
 				let presentationFrame = generatePresentationFrameForPaths(allPaths);
-				presentationFrame = { vc: presentationFrame }
 				const sdJwt = SdJwt.fromCompact<Record<string, unknown>, any>(
 					vcEntity.credential
 				).withHasher(hasherAndAlgorithm)
