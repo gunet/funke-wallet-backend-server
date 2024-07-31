@@ -1,24 +1,24 @@
 export type InputDescriporFormatType = {
-  [formatType: string]: {
+	[formatType: string]: {
 		alg: string[]
 	}
 };
 
 export type InputDescriptorConstraintFieldType = {
-  path: string[];
-  filter?: any; // JSON schema as an object.
+	path: string[];
+	filter?: any; // JSON schema as an object.
 }
 
 export type InputDescriptorType = {
-  id: string;
-  constraints: {
-    fields: InputDescriptorConstraintFieldType[];
-  }
+	id: string;
+	constraints: {
+		fields: InputDescriptorConstraintFieldType[];
+	}
 }
 
 export type PresentationDefinitionType = {
-  id: string;
-  input_descriptors: InputDescriptorType[]
+	id: string;
+	input_descriptors: InputDescriptorType[]
 }
 
 export type PresentationSubmission = {
@@ -36,4 +36,3 @@ export type DescriptorMapElement = {
 		path: string;
 	}
 }
-
