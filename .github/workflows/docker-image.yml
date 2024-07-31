@@ -3,7 +3,7 @@ name: Build Docker image
 on:
   push:
     branches-ignore:
-      - master  # Covered by docker-push.yml
+      - funke  # Covered by docker-push.yml
   pull_request:
 
 jobs:
@@ -14,9 +14,9 @@ jobs:
       contents: read  # To check out repo
       packages: read  # To read NPM registry
 
-    uses: wwwallet/wallet-ecosystem/.github/workflows/docker-build-push.yml@master
+    uses: gunet/funke-wallet-ecosystem/.github/workflows/docker-build-push.yml@master
     secrets: inherit
     with:
-      image-tag: ghcr.io/wwwallet/wallet-backend-server:latest
+      image-tag: ghcr.io/gunet/funke-wallet-backend-server:latest
       docker-push: false
       dockerfile-path: ./Dockerfile

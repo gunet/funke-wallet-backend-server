@@ -1,18 +1,54 @@
 import express, { Router } from "express";
-import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential } from "../entities/VerifiableCredential.entity";
+import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential, createVerifiableCredential } from "../entities/VerifiableCredential.entity";
 import { getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
-
+import crypto from 'node:crypto';
+import { getUserByDID } from "../entities/user.entity";
+import { sendPushNotification } from "../lib/firebase";
 
 
 const storageRouter: Router = express.Router();
 
-
+storageRouter.post('/vc', storeCredential);
 storageRouter.get('/vc', getAllVerifiableCredentialsController);
 storageRouter.get('/vc/:credential_identifier', getVerifiableCredentialByCredentialIdentifierController);
 storageRouter.delete('/vc/:credential_identifier', deleteVerifiableCredentialController);
 storageRouter.get('/vp', getAllVerifiablePresentationsController);
 storageRouter.get('/vp/:presentation_identifier', getPresentationByPresentationIdentifierController);
 
+
+async function storeCredential(req, res) {
+	const { format, doctype, vct, credential } = req.body;
+	createVerifiableCredential({
+		format,
+		doctype,
+		vct,
+		credential,
+		holderDID: req.user.did,
+		credentialIdentifier: crypto.randomUUID(),
+		issuerDID: "",
+		issuerURL: "",
+		logoURL: "",
+		backgroundColor: "",
+		issuanceDate: new Date(),
+		issuerFriendlyName: ""
+	}).then(async () => {
+		// inform all installed instances of the wallet that a credential has been received
+		const userRes = await getUserByDID(req.user.did);
+		if (userRes.err) {
+			return;
+		}
+		const user = userRes.unwrap();
+		if (user.fcmTokenList) {
+			for (const fcmToken of user.fcmTokenList) {
+				sendPushNotification(fcmToken.value, "New Credential", "A new verifiable credential is in your wallet").catch(err => {
+					console.log("Failed to send notification")
+					console.log(err)
+				});
+			}
+		}
+	})
+	res.send({});
+}
 
 async function getAllVerifiableCredentialsController(req, res) {
 	const holderDID = req.user.did;
