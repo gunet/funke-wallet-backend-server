@@ -10,7 +10,7 @@ import { communicationHandlerRouter } from './routers/communicationHandler.route
 import { storageRouter } from './routers/storage.router';
 import { legalPersonRouter } from './routers/legal_person.router';
 import verifiersRouter from './routers/verifiers.router';
-import { reviverTaggedBase64UrlToBuffer } from './util/util';
+import { replacerBufferToTaggedBase64Url, reviverTaggedBase64UrlToBuffer } from './util/util';
 import * as WebSocket from 'ws';
 import http from 'http';
 import { appContainer } from './services/inversify.config';
@@ -28,11 +28,17 @@ const app: Express = express();
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json({ reviver: reviverTaggedBase64UrlToBuffer }));
+app.set('json replacer', replacerBufferToTaggedBase64Url);
 
 app.use(express.static('public'));
 // __dirname is "/path/to/dist/src"
 // public is located at "/path/to/dist/src"
-app.use(cors({ credentials: true, origin: true }));
+app.use(cors({
+	credentials: true,
+	origin: true,
+	allowedHeaders: ['Authorization', 'Content-Type', 'X-Private-Data-If-Match'],
+	exposedHeaders: ['X-Private-Data-ETag'],
+}));
 
 
 // define routes and middleware here
@@ -73,4 +79,3 @@ appContainer.get<SocketManagerServiceInterface>(TYPES.SocketManagerService).regi
 server.listen(config.port, () => {
 	console.log(`Wallet Backend Server listening with ${config.url}`)
 });
-

@@ -7,8 +7,8 @@ import base64url from 'base64url';
 import { EntityManager } from "typeorm"
 
 import config from '../../config';
-import { CreateUser, createUser, deleteUserByDID, deleteWebauthnCredential, getUserByCredentials, getUserByDID, getUserByWebauthnCredential, newWebauthnCredentialEntity, updateUserByDID, UpdateUserErr, updateWebauthnCredential, updateWebauthnCredentialById, UserEntity } from '../entities/user.entity';
-import { jsonParseTaggedBinary, jsonStringifyTaggedBinary } from '../util/util';
+import { CreateUser, createUser, deleteUserByDID, deleteWebauthnCredential, getUserByCredentials, getUserByDID, getUserByWebauthnCredential, GetUserErr, newWebauthnCredentialEntity, privateDataEtag, updateUserByDID, UpdateUserErr, updateWebauthnCredential, updateWebauthnCredentialById, UserEntity } from '../entities/user.entity';
+import { checkedUpdate, EtagUpdate, jsonParseTaggedBinary } from '../util/util';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
 import { ChallengeErr, createChallenge, popChallenge } from '../entities/WebauthnChallenge.entity';
 import * as webauthn from '../webauthn';
@@ -36,20 +36,31 @@ userController.use(AuthMiddleware);
 noAuthUserController.use('/session', userController);
 
 
-async function initSession(user: UserEntity): Promise<{ did: string, appToken: string, username?: string, displayName: string, privateData: string }> {
+async function initSession(user: UserEntity): Promise<{
+	id: number,
+	did: string,
+	appToken: string,
+	username?: string,
+	displayName: string,
+	privateData: Buffer,
+	webauthnRpId: string,
+	webauthnUserHandle: string,
+}> {
 	const secret = new TextEncoder().encode(config.appSecret);
 	const appToken = await new SignJWT({ did: user.did })
 		.setProtectedHeader({ alg: "HS256" })
 		.sign(secret);
 	return {
+		id: user.id,
 		appToken,
 		did: user.did,
 		displayName: user.displayName || user.username,
-		privateData: user.privateData.toString(),
+		privateData: user.privateData,
 		username: user.username,
+		webauthnRpId: webauthn.getRpId(),
+		webauthnUserHandle: user.webauthnUserHandle,
 	};
 }
-
 
 noAuthUserController.post('/register', async (req: Request, res: Response) => {
 	const username = req.body.username;
@@ -60,7 +71,7 @@ noAuthUserController.post('/register', async (req: Request, res: Response) => {
 	}
 
 	const walletInitializationResult = await walletKeystoreManagerService.initializeWallet(
-		{...req.body as RegistrationParams }
+		{ ...req.body as RegistrationParams }
 	);
 
 	if (walletInitializationResult.err) {
@@ -77,7 +88,9 @@ noAuthUserController.post('/register', async (req: Request, res: Response) => {
 
 	const result = (await createUser(newUser));
 	if (result.ok) {
-		res.status(200).send(await initSession(result.val));
+		res.status(200)
+			.header({ 'X-Private-Data-ETag': privateDataEtag(result.val.privateData) })
+			.send(await initSession(result.val));
 
 	} else {
 		console.log("Failed to create user")
@@ -98,14 +111,16 @@ noAuthUserController.post('/login', async (req: Request, res: Response) => {
 	}
 	console.log('user res = ', userRes)
 	const user = userRes.unwrap();
-	res.status(200).send(await initSession(user));
+	res.status(200)
+		.header({ 'X-Private-Data-ETag': privateDataEtag(user.privateData) })
+		.send(await initSession(user));
 })
 
 noAuthUserController.post('/register/db-keys', async (req: Request, res: Response) => {
 })
 
 noAuthUserController.post('/login/db-keys', async (req: Request, res: Response) => {
-	
+
 })
 
 noAuthUserController.post('/register-webauthn-begin', async (req: Request, res: Response) => {
@@ -125,10 +140,10 @@ noAuthUserController.post('/register-webauthn-begin', async (req: Request, res: 
 		},
 	});
 
-	res.status(200).send(jsonStringifyTaggedBinary({
+	res.status(200).send({
 		challengeId: challenge.id,
 		createOptions,
-	}));
+	});
 });
 
 noAuthUserController.post('/register-webauthn-finish', async (req: Request, res: Response) => {
@@ -162,9 +177,9 @@ noAuthUserController.post('/register-webauthn-finish', async (req: Request, res:
 			return;
 		}
 		const walletInitializationResult = await walletKeystoreManagerService.initializeWallet(
-			{...req.body as RegistrationParams }
+			{ ...req.body as RegistrationParams }
 		);
-	
+
 		if (walletInitializationResult.err) {
 			return res.status(400).send({ error: walletInitializationResult.val })
 		}
@@ -187,10 +202,12 @@ noAuthUserController.post('/register-webauthn-finish', async (req: Request, res:
 			],
 		};
 
-		const userRes = await createUser(newUser, false, );
+		const userRes = await createUser(newUser, false,);
 		if (userRes.ok) {
 			console.log("Created user", userRes.val);
-			res.status(200).send(await initSession(userRes.val));
+			res.status(200)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(userRes.val.privateData) })
+				.send(await initSession(userRes.val));
 		} else {
 			res.status(500).send({});
 		}
@@ -208,10 +225,10 @@ noAuthUserController.post('/login-webauthn-begin', async (req: Request, res: Res
 	const challenge = challengeRes.unwrap();
 	const getOptions = webauthn.makeGetOptions({ challenge: challenge.challenge });
 
-	res.status(200).send(jsonStringifyTaggedBinary({
+	res.status(200).send({
 		challengeId: challenge.id,
 		getOptions,
-	}));
+	});
 });
 
 noAuthUserController.post('/login-webauthn-finish', async (req: Request, res: Response) => {
@@ -262,7 +279,9 @@ noAuthUserController.post('/login-webauthn-finish', async (req: Request, res: Re
 		});
 
 		if (updateCredentialRes.ok) {
-			res.status(200).send(await initSession(user));
+			res.status(200)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(user.privateData) })
+				.send(await initSession(user));
 		} else {
 			res.status(500).send({});
 		}
@@ -277,8 +296,8 @@ userController.post('/fcm_token/add', async (req: Request, res: Response) => {
 	const userDID = req.user.did;
 	updateUserByDID(userDID, (userEntity, manager) => {
 		if (req.body.fcm_token &&
-				req.body.fcm_token != '' &&
-				userEntity.fcmTokenList.filter((fcmTokenEntity) => fcmTokenEntity.value == req.body.fcm_token).length == 0) {
+			req.body.fcm_token != '' &&
+			userEntity.fcmTokenList.filter((fcmTokenEntity) => fcmTokenEntity.value == req.body.fcm_token).length == 0) {
 			const fcmTokenEntity = new FcmTokenEntity();
 			fcmTokenEntity.user = userEntity;
 			fcmTokenEntity.value = req.body.fcm_token;
@@ -301,7 +320,7 @@ userController.get('/account-info', async (req: Request, res: Response) => {
 
 	const keys = jsonParseTaggedBinary(user.keys.toString());
 
-	res.status(200).send(jsonStringifyTaggedBinary({
+	res.status(200).send({
 		username: user.username,
 		displayName: user.displayName,
 		did: user.did,
@@ -316,7 +335,7 @@ userController.get('/account-info', async (req: Request, res: Response) => {
 			nickname: cred.nickname,
 			prfCapable: cred.prfCapable,
 		})),
-	}));
+	});
 })
 
 userController.post('/webauthn/register-begin', async (req: Request, res: Response) => {
@@ -349,11 +368,11 @@ userController.post('/webauthn/register-begin', async (req: Request, res: Respon
 		},
 	});
 
-	res.status(200).send(jsonStringifyTaggedBinary({
+	res.status(200).send({
 		username: user.username,
 		challengeId: challenge.id,
 		createOptions,
-	}));
+	});
 });
 
 userController.post('/webauthn/register-finish', async (req: Request, res: Response) => {
@@ -403,16 +422,32 @@ userController.post('/webauthn/register-finish', async (req: Request, res: Respo
 					prfCapable: credential.clientExtensionResults?.prf?.enabled || false,
 				}, manager)
 			);
-			if (req.body.privateData) {
-				userEntity.privateData = Buffer.from(req.body.privateData);
+
+			const newPrivateData = checkedUpdate(
+				req.headers['x-private-data-if-match'],
+				privateDataEtag,
+				{
+					currentValue: userEntity.privateData,
+					newValue: req.body.privateData,
+				},
+			);
+			if (newPrivateData.ok) {
+				userEntity.privateData = newPrivateData.val;
+			} else {
+				return Err(UpdateUserErr.PRIVATE_DATA_CONFLICT);
 			}
+
 			return userEntity;
 		});
 
 		if (updateUserRes.ok) {
-			res.status(200).send(jsonStringifyTaggedBinary({
-				credentialId: credential.id
-			}));
+			res.status(200)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(updateUserRes.val.privateData) })
+				.send({ credentialId: credential.id });
+		} else if (updateUserRes.val === UpdateUserErr.PRIVATE_DATA_CONFLICT) {
+			res.status(412)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(user.privateData) })
+				.send({});
 		} else {
 			res.status(500).send({});
 		}
@@ -453,9 +488,15 @@ userController.post('/webauthn/credential/:id/delete', async (req: Request, res:
 	}
 	const user = userRes.unwrap();
 
-	const deleteRes = await deleteWebauthnCredential(user, req.params.id, Buffer.from(req.body.privateData));
+	const updatePrivateData: EtagUpdate<Buffer> = {
+		expectTag: req.headers['x-private-data-if-match'] as string,
+		newValue: req.body.privateData,
+	};
+	const deleteRes = await deleteWebauthnCredential(user, req.params.id, updatePrivateData);
 	if (deleteRes.ok) {
-		res.status(204).send();
+		res.status(204)
+			.header({ 'X-Private-Data-ETag': privateDataEtag(updatePrivateData.newValue) })
+			.send();
 	} else {
 		if (deleteRes.val === UpdateUserErr.NOT_EXISTS) {
 			res.status(404).send();
@@ -463,11 +504,70 @@ userController.post('/webauthn/credential/:id/delete', async (req: Request, res:
 		} else if (deleteRes.val === UpdateUserErr.LAST_WEBAUTHN_CREDENTIAL) {
 			res.status(409).send();
 
+		} else if (deleteRes.val === UpdateUserErr.PRIVATE_DATA_CONFLICT) {
+			res.status(412)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(updatePrivateData.newValue) })
+				.send();
+
 		} else {
 			res.status(500).send();
 		}
 	}
 })
+
+userController.post('/private-data', async (req: Request, res: Response) => {
+	const updateUserRes = await updateUserByDID(req.user.did, userEntity => {
+		const newPrivateData = checkedUpdate(
+			req.headers['x-private-data-if-match'],
+			privateDataEtag,
+			{
+				currentValue: userEntity.privateData,
+				newValue: req.body,
+			},
+		);
+		if (newPrivateData.ok) {
+			userEntity.privateData = newPrivateData.val;
+			return Ok(userEntity);
+		} else {
+			return Err([UpdateUserErr.PRIVATE_DATA_CONFLICT, userEntity]);
+		}
+	});
+
+	if (updateUserRes.ok) {
+		res.status(204)
+			.header({ 'X-Private-Data-ETag': privateDataEtag(updateUserRes.val.privateData) })
+			.send();
+	} else {
+		if (updateUserRes.val === UpdateUserErr.NOT_EXISTS) {
+			res.status(404).send();
+
+		} else if (updateUserRes.val[0] === UpdateUserErr.PRIVATE_DATA_CONFLICT) {
+			res.status(412)
+				.header({ 'X-Private-Data-ETag': privateDataEtag(updateUserRes.val[1].privateData) })
+				.send();
+
+		} else {
+			res.status(500).send();
+		}
+	}
+});
+
+userController.get('/private-data', async (req: Request, res: Response) => {
+	const userRes = await getUserByDID(req.user.did);
+	if (userRes.ok) {
+		const privateData = userRes.val.privateData;
+		res.status(200)
+			.header({ 'X-Private-Data-ETag': privateDataEtag(privateData) })
+			.send({ privateData });
+	} else {
+		if (userRes.val === GetUserErr.NOT_EXISTS) {
+			res.status(404).send();
+
+		} else {
+			res.status(500).send();
+		}
+	}
+});
 
 userController.delete('/', async (req: Request, res: Response) => {
 	const userDID = req.user.did;
