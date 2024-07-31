@@ -7,7 +7,8 @@ import "reflect-metadata";
 import { z } from 'zod';
 import { Err, Ok, Result } from "ts-results";
 
-import { InputDescriptorType, Verify } from "@wwwallet/ssi-sdk";
+import { Verify } from "./verify/index";
+import { InputDescriptorType } from "./verify/presentationDefinition.type"
 import { HandleOutboundRequestError, OpenidCredentialReceiving, OutboundCommunication, SendResponseError, WalletKeystore, WalletKeystoreErr } from "./interfaces";
 import { TYPES } from "./types";
 import { OutboundRequest } from "./types/OutboundRequest";
@@ -339,9 +340,16 @@ export class OpenidForPresentationService implements OutboundCommunication {
 						continue;
 					}
 
-					if (Verify.verifyVcJwtWithDescriptor(descriptor, vc.credential)) {
-						conformingVcList.push(vc.credentialIdentifier);
+					try {
+						if (Verify.verifyVcJwtWithDescriptor(descriptor, vc.credential)) {
+							conformingVcList.push(vc.credentialIdentifier);
+						}
 					}
+					catch(err) {
+						console.error("Failed verifyVcJwtWithDescriptor")
+						console.error(err)
+					}
+
 				}
 				if (conformingVcList.length == 0) {
 					return Err(HandleOutboundRequestError.INSUFFICIENT_CREDENTIALS);
@@ -424,7 +432,6 @@ export class OpenidForPresentationService implements OutboundCommunication {
 					.map((field) => field.path)
 					.reduce((accumulator, currentValue) => [...accumulator, ...currentValue]);
 				let presentationFrame = generatePresentationFrameForPaths(allPaths);
-				presentationFrame = { vc: presentationFrame }
 				const sdJwt = SdJwt.fromCompact<Record<string, unknown>, any>(
 					vcEntity.credential
 				).withHasher(hasherAndAlgorithm)
