@@ -17,14 +17,14 @@ storageRouter.get('/vp/:presentation_identifier', getPresentationByPresentationI
 
 
 async function storeCredential(req, res) {
-	const { format, doctype, vct, credential } = req.body;
+	const { format, doctype, vct, credential, credentialIdentifier } = req.body;
 	createVerifiableCredential({
 		format,
 		doctype,
 		vct,
 		credential,
 		holderDID: req.user.did,
-		credentialIdentifier: crypto.randomUUID(),
+		credentialIdentifier: credentialIdentifier,
 		issuerDID: "",
 		issuerURL: "",
 		logoURL: "",
