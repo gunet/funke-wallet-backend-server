@@ -1,7 +1,6 @@
 import express, { Router } from "express";
 import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential, createVerifiableCredential } from "../entities/VerifiableCredential.entity";
-import { getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
-import crypto from 'node:crypto';
+import { createVerifiablePresentation, getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
 import { getUserByDID } from "../entities/user.entity";
 import { sendPushNotification } from "../lib/firebase";
 
@@ -12,19 +11,20 @@ storageRouter.post('/vc', storeCredential);
 storageRouter.get('/vc', getAllVerifiableCredentialsController);
 storageRouter.get('/vc/:credential_identifier', getVerifiableCredentialByCredentialIdentifierController);
 storageRouter.delete('/vc/:credential_identifier', deleteVerifiableCredentialController);
+storageRouter.post('/vp', storeVerifiablePresentation);
 storageRouter.get('/vp', getAllVerifiablePresentationsController);
 storageRouter.get('/vp/:presentation_identifier', getPresentationByPresentationIdentifierController);
 
 
 async function storeCredential(req, res) {
-	const { format, doctype, vct, credential } = req.body;
+	const { format, doctype, vct, credential, credentialIdentifier } = req.body;
 	createVerifiableCredential({
 		format,
 		doctype,
 		vct,
 		credential,
 		holderDID: req.user.did,
-		credentialIdentifier: crypto.randomUUID(),
+		credentialIdentifier: credentialIdentifier,
 		issuerDID: "",
 		issuerURL: "",
 		logoURL: "",
@@ -93,6 +93,21 @@ async function deleteVerifiableCredentialController(req, res) {
 }
 
 
+async function storeVerifiablePresentation(req, res) {
+	const holderDID = req.user.did;
+	const storableVerifiablePresentation = req.body;
+	const { presentation, presentationSubmission, format, issuanceDate, audience } = storableVerifiablePresentation;
+	await createVerifiablePresentation({
+		presentation,
+		presentationSubmission,
+		format,
+		holderDID,
+		issuanceDate,
+		audience,
+	});
+
+	res.send({});
+}
 
 async function getAllVerifiablePresentationsController(req, res) {
 	const holderDID = req.user.did;
@@ -105,7 +120,6 @@ async function getAllVerifiablePresentationsController(req, res) {
 	.map((v) => {
 		return {
 			...v,
-			issuanceDate: Math.floor(v.issuanceDate.getTime() / 1000)
 		}
 	});
 	res.status(200).send({ vp_list: vp_list })
@@ -120,7 +134,6 @@ async function getPresentationByPresentationIdentifierController(req, res) {
 		return res.status(500).send({ error: vpResult.val })
 	}
 	const vp = vpResult.unwrap();
-	const changedVC = { ...vp, issuanceDate: Math.floor(vp.issuanceDate.getTime() / 1000)}
 	res.status(200).send(vp);
 }
 

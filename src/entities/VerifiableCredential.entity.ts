@@ -2,7 +2,6 @@ import { Err, Ok, Result } from "ts-results";
 import { Entity, EntityManager, PrimaryGeneratedColumn, Column, Repository} from "typeorm"
 import AppDataSource from "../AppDataSource";
 import { VerifiableCredentialFormat } from "../types/oid4vci";
-import { deletePresentationsByCredentialId } from './VerifiablePresentation.entity';
 
 
 @Entity({ name: "verifiable_credential" })
@@ -112,7 +111,6 @@ async function createVerifiableCredential(createVc: VerifiableCredential) {
 async function deleteVerifiableCredential(holderDID:string, credentialId: string) {
 	try {
 		console.log("Deleting VPs containing the VC", credentialId);
-		await deletePresentationsByCredentialId(holderDID, credentialId);
 		console.log("Deleting VC...");
 
 		const res = await AppDataSource

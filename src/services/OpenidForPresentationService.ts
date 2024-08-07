@@ -546,14 +546,12 @@ export class OpenidForPresentationService implements OutboundCommunication {
 			const vpPayload = JSON.parse(base64url.decode(vp_token.split('.')[1]));
 			console.log("Credential identifiers = ", filteredVCEntities.map((vc) => vc.credentialIdentifier))
 			createVerifiablePresentation({
+				issuanceDate: new Date(),
 				holderDID: did,
-				issuanceDate: vpPayload.vp.issuanceDate,
 				presentation: vp_token,
-				includedVerifiableCredentialIdentifiers: filteredVCEntities.map((vc) => vc.credentialIdentifier),
-				presentationIdentifier: vpPayload.jti,
 				presentationSubmission: presentationSubmission,
+				format: "jwt_vp",
 				audience: new URL(vpPayload.aud).hostname,
-				format: "jwt_vp"
 			});
 
 			const verificationState = this.states.get(userDid);
