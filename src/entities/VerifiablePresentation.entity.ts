@@ -25,6 +25,8 @@ export class VerifiablePresentationEntity {
 	@Column({ nullable: false, default: "jwt_vp" })
 	format: string = "jwt_vp";
 
+	@Column({ type: "blob", nullable: false })
+	includedVerifiableCredentialIdentifiers: string = "[]";
 
 	@Column({ type: 'blob', nullable: false })
 	presentationSubmission: string = "{}";
@@ -43,6 +45,7 @@ type VerifiablePresentation = {
 	id?: number;
 	presentation: string;
 	holderDID: string;
+	includedVerifiableCredentialIdentifiers: string[];
 	presentationSubmission: any;
 	format: string;
 	issuanceDate: Date;
@@ -69,6 +72,7 @@ async function createVerifiablePresentation(createVp: VerifiablePresentation) {
 			.insert()
 			.into(VerifiablePresentationEntity).values([{
 				...createVp,
+				includedVerifiableCredentialIdentifiers: JSON.stringify(createVp.includedVerifiableCredentialIdentifiers),
 				presentationSubmission: JSON.stringify(createVp.presentationSubmission)
 			}])
 			.execute();
@@ -81,6 +85,47 @@ async function createVerifiablePresentation(createVp: VerifiablePresentation) {
 }
 
 
+async function deletePresentationsByCredentialId(holderDID:string, credentialIdentifier: string): Promise<Result<number, DeleteVerifiablePresentationErr >> {
+	try {
+		// Get all verifiable presentations for the given holderDID
+		const vpList = await getAllVerifiablePresentations(holderDID);
+
+		const deletePromises: Promise<any>[] = [];
+
+		for (const vp of vpList) {
+			// Check if credentialIdentifier is in includedVerifiableCredentialIdentifiers
+			if (vp.includedVerifiableCredentialIdentifiers.includes(credentialIdentifier)) {
+				// Delete the presentation and push the promise to the array
+				const deletePromise = verifiablePresentationRepository
+					.createQueryBuilder()
+					.delete()
+					.from(VerifiablePresentationEntity)
+					.where("id = :id", { id: vp.id })
+					.execute();
+
+				deletePromises.push(deletePromise);
+			}
+		}
+		const deleteResults = await Promise.all(deletePromises);
+
+		let totalAffectedRows = 0;
+		for (const result of deleteResults) {
+			totalAffectedRows += result.affected;
+		}
+
+		if (totalAffectedRows > 0) {
+			console.log(`Total presentations deleted: ${totalAffectedRows}`);
+			return Ok(totalAffectedRows);
+		} else {
+			console.log("No presentations were deleted");
+			return Ok(0);
+		}
+	} catch (e) {
+		console.log(e);
+		return Err(DeleteVerifiablePresentationErr.DB_ERR);
+	}
+}
+
 async function getAllVerifiablePresentations(holderDID: string): Promise<Result<VerifiablePresentation[], GetAllVerifiablePresentationsErr>> {
 	try {
 		const vpList = await verifiablePresentationRepository
@@ -92,7 +137,7 @@ async function getAllVerifiablePresentations(holderDID: string): Promise<Result<
 			const transformed: VerifiablePresentation = {
 				...vp,
 				presentation: JSON.parse(vp.presentation.toString()),
-				// includedVerifiableCredentialIdentifiers: JSON.parse(vp.includedVerifiableCredentialIdentifiers.toString()),
+				includedVerifiableCredentialIdentifiers: JSON.parse(vp.includedVerifiableCredentialIdentifiers.toString()),
 				presentationSubmission: JSON.parse(vp.presentationSubmission.toString())
 			}
 			return transformed;
@@ -118,6 +163,7 @@ async function getPresentationByIdentifier(holderDID: string, presentationIdenti
 		const transformed: VerifiablePresentation = {
 			...vp,
 			presentation: JSON.parse(vp.presentation.toString()),
+			includedVerifiableCredentialIdentifiers: JSON.parse(vp.includedVerifiableCredentialIdentifiers.toString()),
 			presentationSubmission: JSON.parse(vp.presentationSubmission.toString())
 		}
 		return Ok(transformed);
@@ -152,7 +198,7 @@ export {
 	VerifiablePresentation,
 	getAllVerifiablePresentations,
 	createVerifiablePresentation,
-	// deletePresentationsByCredentialId,
+	deletePresentationsByCredentialId,
 	getPresentationByIdentifier,
 	deleteAllPresentationsWithHolderDID
 }

@@ -1,6 +1,6 @@
 import express, { Router } from "express";
 import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential, createVerifiableCredential } from "../entities/VerifiableCredential.entity";
-import { createVerifiablePresentation, getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
+import { createVerifiablePresentation, deletePresentationsByCredentialId, getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
 import { getUserByDID } from "../entities/user.entity";
 import { sendPushNotification } from "../lib/firebase";
 
@@ -85,6 +85,7 @@ async function getVerifiableCredentialByCredentialIdentifierController(req, res)
 async function deleteVerifiableCredentialController(req, res) {
 	const holderDID = req.user.did;
 	const { credential_identifier } = req.params;
+	await deletePresentationsByCredentialId(holderDID, credential_identifier)
 	const deleteResult = await deleteVerifiableCredential(holderDID, credential_identifier);
 	if (deleteResult.err) {
 		return res.status(500).send({ error: deleteResult.val });
@@ -96,7 +97,7 @@ async function deleteVerifiableCredentialController(req, res) {
 async function storeVerifiablePresentation(req, res) {
 	const holderDID = req.user.did;
 	const storableVerifiablePresentation = req.body;
-	const { presentation, presentationSubmission, format, issuanceDate, audience } = storableVerifiablePresentation;
+	const { presentation, presentationSubmission, format, issuanceDate, audience, includedVerifiableCredentialIdentifiers } = storableVerifiablePresentation;
 	await createVerifiablePresentation({
 		presentation,
 		presentationSubmission,
@@ -104,6 +105,7 @@ async function storeVerifiablePresentation(req, res) {
 		holderDID,
 		issuanceDate,
 		audience,
+		includedVerifiableCredentialIdentifiers
 	});
 
 	res.send({});
@@ -124,6 +126,8 @@ async function getAllVerifiablePresentationsController(req, res) {
 	});
 	res.status(200).send({ vp_list: vp_list })
 }
+
+
 
 async function getPresentationByPresentationIdentifierController(req, res) {
 	const holderDID = req.user.did;
