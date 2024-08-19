@@ -20,7 +20,7 @@ export class VerifiableCredentialEntity {
 
 
 	@Column({ nullable: false })
-	credentialIdentifier: string = ""; // for JWTs it is the "jti" attribute
+	credentialIdentifier: string = "";
 
 	@Column({ nullable:false, type: 'blob' })
 	credential: Buffer = Buffer.from("");

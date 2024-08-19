@@ -2,7 +2,6 @@ import { Container } from "inversify";
 import { TYPES  } from "./types";
 import { OpenidCredentialReceiving, OutboundCommunication, WalletKeystore, DidKeyUtilityService, SocketManagerServiceInterface, WalletKeystoreManager } from "./interfaces";
 import { OpenidForCredentialIssuanceService } from "./OpenidForCredentialIssuanceService";
-import { OpenidForPresentationService } from "./OpenidForPresentationService";
 import "reflect-metadata";
 import { DatabaseKeystoreService } from "./DatabaseKeystoreService";
 import config from "../../config";
@@ -31,9 +30,6 @@ case "OpenidForCredentialIssuanceService":
 		.to(OpenidForCredentialIssuanceService)
 	break;
 }
-
-appContainer.bind<OutboundCommunication>(TYPES.OpenidForPresentationService)
-	.to(OpenidForPresentationService)
 
 
 if (!config.servicesConfiguration.didKeyService) {
