@@ -6,20 +6,17 @@ import cors from 'cors';
 import userController from './routers/user.router';
 import { AuthMiddleware } from './middlewares/auth.middleware';
 import { statusRouter } from './routers/status.router';
-import { communicationHandlerRouter } from './routers/communicationHandler.router';
 import { storageRouter } from './routers/storage.router';
 import { legalPersonRouter } from './routers/legal_person.router';
 import verifiersRouter from './routers/verifiers.router';
 import { replacerBufferToTaggedBase64Url, reviverTaggedBase64UrlToBuffer } from './util/util';
-import * as WebSocket from 'ws';
 import http from 'http';
 import { appContainer } from './services/inversify.config';
 import { SocketManagerServiceInterface } from './services/interfaces';
 import { TYPES } from './services/types';
-import https from 'https';
-import fs from 'fs';
-import path from 'path';
 
+import { proxyRouter } from './routers/proxy.router';
+import { utilsRouter } from './routers/utilsRouter';
 
 const app: Express = express();
 // __dirname is "/path/to/dist/src"
@@ -49,14 +46,11 @@ app.use('/user', userController);
 app.use(AuthMiddleware);
 
 // all the following endpoints are guarded by the AuthMiddleware
-app.use('/communication', communicationHandlerRouter);
 app.use('/storage', storageRouter);
 app.use('/legal_person', legalPersonRouter);
 app.use('/verifiers', verifiersRouter);
-
-
-
-
+app.use('/proxy', proxyRouter);
+app.use('/utils', utilsRouter);
 
 const server = http.createServer(app);
 appContainer.get<SocketManagerServiceInterface>(TYPES.SocketManagerService).register(server);

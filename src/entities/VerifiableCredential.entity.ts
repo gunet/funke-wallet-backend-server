@@ -2,7 +2,6 @@ import { Err, Ok, Result } from "ts-results";
 import { Entity, EntityManager, PrimaryGeneratedColumn, Column, Repository} from "typeorm"
 import AppDataSource from "../AppDataSource";
 import { VerifiableCredentialFormat } from "../types/oid4vci";
-import { deletePresentationsByCredentialId } from './VerifiablePresentation.entity';
 
 
 @Entity({ name: "verifiable_credential" })
@@ -21,7 +20,7 @@ export class VerifiableCredentialEntity {
 
 
 	@Column({ nullable: false })
-	credentialIdentifier: string = ""; // for JWTs it is the "jti" attribute
+	credentialIdentifier: string = "";
 
 	@Column({ nullable:false, type: 'blob' })
 	credential: Buffer = Buffer.from("");
@@ -39,11 +38,16 @@ export class VerifiableCredentialEntity {
 	@Column({ nullable: false })
 	format: string; // = CredentialTypes.JWT_VC; // 'ldp_vc' or 'jwt_vc' or "vc+sd-jwt"
 
+	@Column({ nullable: true })
+	doctype?: string;
 
-	@Column({ nullable: false })
+	@Column({ nullable: true })
+	vct?: string;
+
+	@Column({ nullable: true })
 	logoURL: string = "";
 
-	@Column({ nullable: false })
+	@Column({ nullable: true })
 	backgroundColor: string = "";
 
 
@@ -78,6 +82,8 @@ type VerifiableCredential = {
 	backgroundColor: string;
 	issuanceDate: Date;
 	issuerFriendlyName: string;
+	doctype?: string;
+	vct?: string;
 }
 
 
@@ -105,7 +111,6 @@ async function createVerifiableCredential(createVc: VerifiableCredential) {
 async function deleteVerifiableCredential(holderDID:string, credentialId: string) {
 	try {
 		console.log("Deleting VPs containing the VC", credentialId);
-		await deletePresentationsByCredentialId(holderDID, credentialId);
 		console.log("Deleting VC...");
 
 		const res = await AppDataSource

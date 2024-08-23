@@ -12,8 +12,6 @@ export class VerifiablePresentationEntity {
 	id: number = -1;
 
 
-	@Column({ nullable: false })
-	presentationIdentifier: string = "";
 
 	@Column({ type: 'blob', nullable: false })
 	presentation: string = "";
@@ -30,7 +28,6 @@ export class VerifiablePresentationEntity {
 	@Column({ type: "blob", nullable: false })
 	includedVerifiableCredentialIdentifiers: string = "[]";
 
-
 	@Column({ type: 'blob', nullable: false })
 	presentationSubmission: string = "{}";
 
@@ -46,14 +43,13 @@ const verifiablePresentationRepository: Repository<VerifiablePresentationEntity>
 
 type VerifiablePresentation = {
 	id?: number;
-	presentationIdentifier: string;
 	presentation: string;
 	holderDID: string;
 	includedVerifiableCredentialIdentifiers: string[];
-	issuanceDate: Date;
-	audience: string;
 	presentationSubmission: any;
 	format: string;
+	issuanceDate: Date;
+	audience: string;
 }
 
 enum GetAllVerifiablePresentationsErr {
@@ -87,6 +83,7 @@ async function createVerifiablePresentation(createVp: VerifiablePresentation) {
 		return Err(CreateVerifiablePresentationErr);
 	}
 }
+
 
 async function deletePresentationsByCredentialId(holderDID:string, credentialIdentifier: string): Promise<Result<number, DeleteVerifiablePresentationErr >> {
 	try {

@@ -1,18 +1,56 @@
 import express, { Request, Response, Router } from "express";
-import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential } from "../entities/VerifiableCredential.entity";
-import { getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
-
+import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential, createVerifiableCredential } from "../entities/VerifiableCredential.entity";
+import { createVerifiablePresentation, deletePresentationsByCredentialId, getAllVerifiablePresentations, getPresentationByIdentifier }  from "../entities/VerifiablePresentation.entity";
+import { sendPushNotification } from "../lib/firebase";
+import { getUser } from "../entities/user.entity";
 
 
 const storageRouter: Router = express.Router();
 
-
+storageRouter.post('/vc', storeCredential);
 storageRouter.get('/vc', getAllVerifiableCredentialsController);
 storageRouter.get('/vc/:credential_identifier', getVerifiableCredentialByCredentialIdentifierController);
 storageRouter.delete('/vc/:credential_identifier', deleteVerifiableCredentialController);
+storageRouter.post('/vp', storeVerifiablePresentation);
 storageRouter.get('/vp', getAllVerifiablePresentationsController);
 storageRouter.get('/vp/:presentation_identifier', getPresentationByPresentationIdentifierController);
 
+
+async function storeCredential(req: Request, res: Response) {
+	const { format, doctype, vct, credential, credentialIdentifier } = req.body;
+	createVerifiableCredential({
+		format,
+		doctype,
+		vct,
+		credential,
+		holderDID: req.user.did,
+		credentialIdentifier: credentialIdentifier,
+		issuerDID: "",
+		issuerURL: "",
+		logoURL: "",
+		backgroundColor: "",
+		issuanceDate: new Date(),
+		issuerFriendlyName: ""
+	}).then(async () => {
+		// inform all installed instances of the wallet that a credential has been received
+		
+		const u = await getUser(req.user.id);
+		if (u.err) {
+			return res.send({});
+		}
+
+		const user = u.unwrap();
+		if (user.fcmTokenList) {
+			for (const fcmToken of user.fcmTokenList) {
+				sendPushNotification(fcmToken.value, "New Credential", "A new verifiable credential is in your wallet").catch(err => {
+					console.log("Failed to send notification")
+					console.log(err)
+				});
+			}
+		}
+	})
+	res.send({});
+}
 
 async function getAllVerifiableCredentialsController(req: Request, res: Response) {
 	const holderDID = req.user.did;
@@ -49,6 +87,7 @@ async function getVerifiableCredentialByCredentialIdentifierController(req: Requ
 async function deleteVerifiableCredentialController(req: Request, res: Response) {
 	const holderDID = req.user.did;
 	const { credential_identifier } = req.params;
+	await deletePresentationsByCredentialId(holderDID, credential_identifier)
 	const deleteResult = await deleteVerifiableCredential(holderDID, credential_identifier);
 	if (deleteResult.err) {
 		return res.status(500).send({ error: deleteResult.val });
@@ -57,6 +96,22 @@ async function deleteVerifiableCredentialController(req: Request, res: Response)
 }
 
 
+async function storeVerifiablePresentation(req, res) {
+	const holderDID = req.user.did;
+	const storableVerifiablePresentation = req.body;
+	const { presentation, presentationSubmission, format, issuanceDate, audience, includedVerifiableCredentialIdentifiers } = storableVerifiablePresentation;
+	await createVerifiablePresentation({
+		presentation,
+		presentationSubmission,
+		format,
+		holderDID,
+		issuanceDate,
+		audience,
+		includedVerifiableCredentialIdentifiers
+	});
+
+	res.send({});
+}
 
 async function getAllVerifiablePresentationsController(req: Request, res: Response) {
 	const holderDID = req.user.did;
@@ -69,7 +124,6 @@ async function getAllVerifiablePresentationsController(req: Request, res: Respon
 	.map((v) => {
 		return {
 			...v,
-			issuanceDate: Math.floor(v.issuanceDate.getTime() / 1000)
 		}
 	});
 	res.status(200).send({ vp_list: vp_list })
@@ -84,7 +138,6 @@ async function getPresentationByPresentationIdentifierController(req: Request, r
 		return res.status(500).send({ error: vpResult.val })
 	}
 	const vp = vpResult.unwrap();
-	const changedVC = { ...vp, issuanceDate: Math.floor(vp.issuanceDate.getTime() / 1000)}
 	res.status(200).send(vp);
 }
 
