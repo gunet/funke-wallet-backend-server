@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from "express";
 import { getAllVerifiableCredentials, getVerifiableCredentialByCredentialIdentifier, deleteVerifiableCredential, createVerifiableCredential } from "../entities/VerifiableCredential.entity";
-import { createVerifiablePresentation, deletePresentationsByCredentialId, getAllVerifiablePresentations, getPresentationByIdentifier }  from "../entities/VerifiablePresentation.entity";
+import { createVerifiablePresentation, deletePresentationsByCredentialId, getAllVerifiablePresentations, getPresentationByIdentifier } from "../entities/VerifiablePresentation.entity";
 import { sendPushNotification } from "../lib/firebase";
 import { getUser } from "../entities/user.entity";
 
@@ -33,7 +33,7 @@ async function storeCredential(req: Request, res: Response) {
 		issuerFriendlyName: ""
 	}).then(async () => {
 		// inform all installed instances of the wallet that a credential has been received
-		
+
 		const u = await getUser(req.user.id);
 		if (u.err) {
 			return res.send({});
@@ -61,12 +61,12 @@ async function getAllVerifiableCredentialsController(req: Request, res: Response
 		return;
 	}
 	const vc_list = vcListResult.unwrap()
-	.map((v) => {
-		return {
-			...v,
-			issuanceDate: Math.floor(v.issuanceDate.getTime() / 1000)
-		}
-	});
+		.map((v) => {
+			return {
+				...v,
+				issuanceDate: Math.floor(v.issuanceDate.getTime() / 1000)
+			}
+		});
 
 	res.status(200).send({ vc_list: vc_list })
 
@@ -80,7 +80,7 @@ async function getVerifiableCredentialByCredentialIdentifierController(req: Requ
 		return res.status(500).send({ error: vcFetchResult.val })
 	}
 	const vc = vcFetchResult.unwrap();
-	const changedVC = { ...vc, issuanceDate: Math.floor(vc.issuanceDate.getTime() / 1000)}
+	const changedVC = { ...vc, issuanceDate: Math.floor(vc.issuanceDate.getTime() / 1000) }
 	res.status(200).send(vc);
 }
 
@@ -121,11 +121,11 @@ async function getAllVerifiablePresentationsController(req: Request, res: Respon
 		return;
 	}
 	const vp_list = vpListResult.unwrap()
-	.map((v) => {
-		return {
-			...v,
-		}
-	});
+		.map((v) => {
+			return {
+				...v,
+			}
+		});
 	res.status(200).send({ vp_list: vp_list })
 }
 
